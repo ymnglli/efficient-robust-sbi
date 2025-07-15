@@ -51,11 +51,13 @@ Code for creating all figures in our paper can be found in `notebooks/plots.ipyn
 
 ## Citation
 ```
-@article{huang2023learning,
-  title={Learning Robust Statistics for Simulation-based Inference under Model Misspecification},
-  author={Huang, Daolang and Bharti, Ayush and Souza, Amauri and Acerbi, Luigi and Kaski, Samuel},
-  journal={arXiv preprint arXiv:2305.15871},
-  year={2023}
+@inproceedings{huang2023learning,
+ author = {Huang, Daolang and Bharti, Ayush and Souza, Amauri and Acerbi, Luigi and Kaski, Samuel},
+ booktitle = {Advances in Neural Information Processing Systems},
+ title = {Learning Robust Statistics for Simulation-based Inference under Model Misspecification},
+ volume = {36},
+ pages = {7289--7310},
+ year = {2023}
 }
 ```
 
