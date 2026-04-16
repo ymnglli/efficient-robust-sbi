@@ -3,13 +3,14 @@
 
 from typing import Any, Dict, Optional
 
+import math
 import numpy as np
 import torch
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold, cross_val_score
 from sklearn.neural_network import MLPClassifier
 from torch import Tensor
-from scipy.stats import stats as stats
+from scipy import stats as stats
 from scipy.spatial import cKDTree as KDTree
 
 def c2st(
@@ -306,50 +307,67 @@ def MMD_unweighted(x, y, lengthscale):
 
     return (1 / m ** 2) * torch.sum(kxx) - (2 / (m * n)) * torch.sum(kxy) + (1 / n ** 2) * torch.sum(kyy)
 
+def normal_cdf(x, mean, std):
+    return 0.5 * (1 + torch.erf((x - mean) / (std * math.sqrt(2))))
+
 def embedding_unif(u):
     l = median_heuristic(u)
     dim = u.shape[1]
-    z = np.zeros(shape = u.shape)
+    z = torch.zeros_like(u)
     
     for i in range(dim):
-        z[:,i] = np.sqrt(2*np.pi) * l * (stats.norm.cdf(1, loc=u[:,i], scale = l) - stats.norm.cdf(0, loc = u[:,i], scale = l))
-    
+        z[:, i] = math.sqrt(2 * math.pi) * l * (
+            normal_cdf(torch.tensor(1.0, device=u.device), u[:, i], l) -
+            normal_cdf(torch.tensor(0.0, device=u.device), u[:, i], l)
+        )
+
     if dim == 1:
         return z
     else:
-        return np.prod(z, axis = 1)
+        return torch.prod(z, dim=1)
+    
+def kernel_matrix(x, y, lengthscale):
+    sq_dist = torch.cdist(x, y) ** 2
+    return torch.exp(-sq_dist / (2 * lengthscale**2))
     
 def MMD_weighted(x, y, w, lengthscale):
-    if len(x.shape) == 1:
-        x = np.array(x, ndmin = 2).transpose()
-        y = np.array(y, ndmin = 2).transpose()
-        w = np.array(w, ndmin = 2).transpose()
-    
+    if x.dim() == 1:
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(1)
+        w = w.unsqueeze(1)
+
     m = x.shape[0]
     n = y.shape[0]
 
-    xy = np.concatenate((x, y), axis = 0)
+    xy = torch.cat([x, y], dim=0)
     K = kernel_matrix(xy, xy, lengthscale)
 
-    kxx = K[0:m, 0:m]
-    kyy = K[m:(m + n), m:(m + n)]
-    kxy = K[0:m, m:(m + n)]
+    kxx = K[:m, :m]
+    kyy = K[m:m+n, m:m+n]
+    kxy = K[:m, m:m+n]
 
-    sum1 = np.matmul(np.matmul(w.transpose(), kxx), w)
-    sum2 = np.sum(np.matmul(w.transpose(), kxy))
-    sum3 = (1/n**2) * np.sum(kyy)
+    w = w.view(-1, 1)
 
-    return sum1 - (2/n) * sum2 + sum3
+    sum1 = w.T @ kxx @ w
+    sum2 = (w.T @ kxy).sum()
+    sum3 = kyy.sum() / (n**2)
+
+    return (sum1 - (2/n) * sum2 + sum3).squeeze()
 
 def computeWeights(u, z):
     m = u.shape[0]
     l = median_heuristic(u)
 
     delta = 1e-8
-    C = kernel_matrix(u, u, l) + delta * np.identity(m)
 
-    C_inv = np.linalg.inv(C)
-    return np.matmul(C_inv, z)
+    C = kernel_matrix(u, u, l) + delta * torch.eye(m, device=u.device)
+
+    if z.dim() == 1:
+        z = z.unsqueeze(1)
+
+    w = torch.linalg.solve(C, z)
+
+    return w.squeeze()
 
 def median_heuristic(y):
     a = torch.cdist(y, y)**2
