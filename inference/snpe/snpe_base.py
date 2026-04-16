@@ -407,6 +407,57 @@ class PosteriorEstimator(NeuralInference, ABC):
                     t_loss = torch.mean(train_losses)
 
                     train_loss = t_loss + beta * summary_loss
+
+                elif distance == "mmd-efficient":
+                    theta, x, _ = self.get_simulations(starting_round=0)
+                    theta_dim = theta[0].shape[0]
+
+                    _, embedding_context_cont, embedding_context_cont_hidden = self._loss(
+                        theta[0].reshape(-1, theta_dim),
+                        x_obs,
+                        masks_batch,
+                        proposal,
+                        calibration_kernel,
+                        force_first_round_loss=True,
+                    )
+
+                    index_list = [int(i) for i in range(len(theta))]
+                    random.shuffle(index_list)
+                    theta = theta[index_list[:200]]
+                    x = x[index_list[:200]]
+
+                    _, embedding_context, _ = self._loss(
+                        theta,
+                        x,
+                        masks_batch,
+                        proposal,
+                        calibration_kernel,
+                        force_first_round_loss=True,
+                    )
+
+                    u = torch.rand(
+                        embedding_context.shape[0],
+                        embedding_context.shape[1],
+                        device=embedding_context.device
+                    ).detach()
+
+                    z = embedding_unif(u)
+                    w = computeWeights(u, z)
+
+                    # normalize and clamp weights
+                    w = w / (w.sum() + 1e-8)
+                    w = torch.clamp(w, min=0)
+
+                    lengthscale = median_heuristic(
+                        torch.cat([embedding_context, embedding_context_cont], dim=0)
+                    )
+                    
+                    summary_loss = MMD_weighted(embedding_context, embedding_context_cont, w, lengthscale)
+
+                    t_loss = torch.mean(train_losses)
+
+                    train_loss = t_loss + beta * summary_loss
+
                 elif distance == "none":
                     train_loss = torch.mean(train_losses)
                 else:
