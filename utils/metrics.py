@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold, cross_val_score
 from sklearn.neural_network import MLPClassifier
 from torch import Tensor
-from scipy.stats import gaussian_kde
+from scipy.stats import stats as stats
 from scipy.spatial import cKDTree as KDTree
 
 def c2st(
@@ -306,6 +306,50 @@ def MMD_unweighted(x, y, lengthscale):
 
     return (1 / m ** 2) * torch.sum(kxx) - (2 / (m * n)) * torch.sum(kxy) + (1 / n ** 2) * torch.sum(kyy)
 
+def embedding_unif(u):
+    l = median_heuristic(u)
+    dim = u.shape[1]
+    z = np.zeros(shape = u.shape)
+    
+    for i in range(dim):
+        z[:,i] = np.sqrt(2*np.pi) * l * (stats.norm.cdf(1, loc=u[:,i], scale = l) - stats.norm.cdf(0, loc = u[:,i], scale = l))
+    
+    if dim == 1:
+        return z
+    else:
+        return np.prod(z, axis = 1)
+    
+def MMD_weighted(x, y, w, lengthscale):
+    if len(x.shape) == 1:
+        x = np.array(x, ndmin = 2).transpose()
+        y = np.array(y, ndmin = 2).transpose()
+        w = np.array(w, ndmin = 2).transpose()
+    
+    m = x.shape[0]
+    n = y.shape[0]
+
+    xy = np.concatenate((x, y), axis = 0)
+    K = kernel_matrix(xy, xy, lengthscale)
+
+    kxx = K[0:m, 0:m]
+    kyy = K[m:(m + n), m:(m + n)]
+    kxy = K[0:m, m:(m + n)]
+
+    sum1 = np.matmul(np.matmul(w.transpose(), kxx), w)
+    sum2 = np.sum(np.matmul(w.transpose(), kxy))
+    sum3 = (1/n**2) * np.sum(kyy)
+
+    return sum1 - (2/n) * sum2 + sum3
+
+def computeWeights(u, z):
+    m = u.shape[0]
+    l = median_heuristic(u)
+
+    delta = 1e-8
+    C = kernel_matrix(u, u, l) + delta * np.identity(m)
+
+    C_inv = np.linalg.inv(C)
+    return np.matmul(C_inv, z)
 
 def median_heuristic(y):
     a = torch.cdist(y, y)**2
