@@ -2,6 +2,7 @@ from simulators.ricker import ricker
 from networks.summary_nets import RickerSummary
 from utils.get_nn_models import *
 from inference.snpe.snpe_c import SNPE_C as SNPE
+from sbi.utils import BoxUniform
 from inference.base import *
 from utils.torchutils import *
 import pickle
@@ -28,12 +29,13 @@ def main(args):
         os.makedirs(root_name)
 
     if prior_mismatch:
-        prior = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
-                 torch.distributions.log_normal.LogNormal(loc=torch.tensor([0.5]), scale=torch.tensor([1]))]
+        low = torch.tensor([2.0, 0.0])
+        high = torch.tensor([8.0, 20.0])
     else:
-        prior = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
-                 Uniform(torch.zeros(1), 20 * torch.ones(1))]
+        low = torch.tensor([2.0, 0.0])
+        high = torch.tensor([8.0, 20.0])
 
+    prior = BoxUniform(low=low, high=high)
     simulator, prior = prepare_for_sbi(ricker(N=N), prior)
 
     sum_net = RickerSummary(input_size=1, hidden_dim=4).to(device)
@@ -77,8 +79,8 @@ def main(args):
         distance=distance, x_obs=obs_cont, beta=beta)
 
     # increase the prior range in case we can't generate thetas for mis-specified observation
-    prior_new = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
-                 Uniform(torch.zeros(1), 80 * torch.ones(1))]
+    prior_new = BoxUniform(low=torch.tensor([2.0, 0.0]),
+                           high=torch.tensor([8.0, 80.0]))
     simulator, prior_new = prepare_for_sbi(ricker(N=N), prior_new)
     posterior = inference.build_posterior(density_estimator, prior=prior_new)
 
@@ -98,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument("--beta", type=float, default=1.0, help="regularization weight")
     parser.add_argument("--degree", type=float, default=0.2, help="degree of mis-specification")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd"])
+    parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd", "mmd-efficient"])
     parser.add_argument("--num_simulations", type=int, default=1000, help="number of simulations")
     parser.add_argument("--theta", type=list, default=[4, 10], help="ground truth theta")
     parser.add_argument("--N", type=int, default=100, help="Number of realizations for each set of theta")

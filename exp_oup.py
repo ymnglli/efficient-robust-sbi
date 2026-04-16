@@ -6,6 +6,7 @@ from networks.summary_nets import OUPSummary
 from utils.get_nn_models import *
 from inference.snpe.snpe_c import SNPE_C as SNPE
 from inference.base import *
+from sbi.utils import BoxUniform
 from utils.torchutils import *
 import pickle
 import os
@@ -30,8 +31,11 @@ def main(args):
     if not os.path.exists(root_name):
         os.makedirs(root_name)
 
-    prior = [Uniform(torch.zeros(1).to(device), 2 * torch.ones(1).to(device)),
-             Uniform(-2 * torch.ones(1).to(device), 2 * torch.ones(1).to(device))]
+    prior = BoxUniform(
+        low=torch.tensor([0.0, -2.0], device=device),
+        high=torch.tensor([2.0, 2.0], device=device)
+    )
+
     simulator, prior = prepare_for_sbi(oup(N=N, var=var), prior)
 
     sum_net = OUPSummary(input_size=1, hidden_dim=2, N=N).to(device)
@@ -66,8 +70,10 @@ def main(args):
         distance=distance, x_obs=obs_cont, beta=beta)
 
     # increase the prior range in case we can't generate thetas for mis-specified observation
-    prior_new = [Uniform(-20 * torch.ones(1), 20 * torch.ones(1)),
-                 Uniform(-20 * torch.ones(1), 20 * torch.ones(1))]
+    prior_new = BoxUniform(
+        low=torch.tensor([-20.0, -20.0], device=device),
+        high=torch.tensor([20.0, 20.0], device=device)
+    )
     simulator, prior_new = prepare_for_sbi(oup(N=N, var=var), prior_new)
     posterior = inference.build_posterior(density_estimator, prior=prior_new)
 
@@ -87,7 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("--beta", type=float, default=1.0, help="regularization weight")
     parser.add_argument("--degree", type=float, default=0.2, help="degree of mis-specification")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd"])
+    parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd", "mmd-efficient"])
     parser.add_argument("--num_simulations", type=int, default=1000, help="number of simulations")
     parser.add_argument("--theta", type=list, default=[0.5, 1.0], help="ground truth theta")
     parser.add_argument("--N", type=int, default=100, help="Number of realizations for each set of theta")
