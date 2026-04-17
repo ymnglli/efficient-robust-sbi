@@ -10,3 +10,6 @@ data/*
 !data/turin_obs.npy
 
 objects/*
+
+**/__pycache__
+.python-version
