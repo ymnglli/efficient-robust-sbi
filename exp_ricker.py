@@ -8,6 +8,7 @@ from utils.torchutils import *
 import pickle
 import os
 import argparse
+from timer import Timer
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -25,6 +26,8 @@ def main(args):
 
     task_name = f"degree={degree}_{distance}_beta={beta}_theta={theta_gt}_num={num_simulations}/{str(args.seed)}"
     root_name = 'objects/NPE/ricker/' + str(task_name)
+    timer = Timer(task_name, root_name)
+    timer.start()
     if not os.path.exists(root_name):
         os.makedirs(root_name)
 
@@ -38,14 +41,23 @@ def main(args):
     prior = BoxUniform(low=low, high=high)
     simulator, prior = prepare_for_sbi(ricker(N=N), prior)
 
+    timer.lap()
+
     sum_net = RickerSummary(input_size=1, hidden_dim=4).to(device)
+
+    timer.lap()
+
     neural_posterior = posterior_nn(
         model="maf",
         embedding_net=sum_net,
         hidden_features=20,
         num_transforms=3)
+    
+    timer.lap()
 
     inference = SNPE(prior=prior, density_estimator=neural_posterior, device=str(device))
+
+    timer.lap()
 
     if args.pre_generated_obs:
         if prior_mismatch:
@@ -63,6 +75,8 @@ def main(args):
             obs_2 = simulator(theta_cont).to(device)
             obs_cont = torch.cat([obs[:n_normal], obs_2[:n_corrupted]], dim=0).reshape(-1, N, 100)
 
+    timer.lap()
+
     if args.pre_generated_sim:
         if prior_mismatch:
             theta = torch.tensor(np.load("data/ricker_theta_1000_pm.npy"))
@@ -72,6 +86,8 @@ def main(args):
             x = torch.tensor(np.load("data/ricker_x_1000.npy")).reshape(num_simulations, N, 100)
     else:
         theta, x = simulate_for_sbi(simulator, prior, num_simulations=num_simulations)
+
+    timer.lap()
 
     x = x.reshape(num_simulations, N, 100).to(device)
     theta = theta.to(device)
@@ -84,6 +100,8 @@ def main(args):
     simulator, prior_new = prepare_for_sbi(ricker(N=N), prior_new)
     posterior = inference.build_posterior(density_estimator, prior=prior_new)
 
+    timer.lap()
+
     with open(root_name + "/posterior.pkl", "wb") as handle:
         pickle.dump(posterior, handle)
 
@@ -93,6 +111,10 @@ def main(args):
     if args.keep_inference:
         with open(root_name + "/inference.pkl", "wb") as handle:
             pickle.dump(inference, handle)
+
+    timer.lap()
+    
+    timer.stop()
 
 
 if __name__ == "__main__":
