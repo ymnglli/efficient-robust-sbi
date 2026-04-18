@@ -12,7 +12,7 @@ def simulate_data(simulator, prior, num_simulations):
 
 
 if __name__ == "__main__":
-    data_dir = "test"
+    data_dir = "data"
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
 
