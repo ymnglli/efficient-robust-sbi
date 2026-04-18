@@ -423,6 +423,7 @@ class PosteriorEstimator(NeuralInference, ABC):
 
                     index_list = [int(i) for i in range(len(theta))]
                     random.shuffle(index_list)
+                    # TODO: make batch size configurable
                     theta = theta[index_list[:200]]
                     x = x[index_list[:200]]
 
@@ -435,27 +436,16 @@ class PosteriorEstimator(NeuralInference, ABC):
                         force_first_round_loss=True,
                     )
 
-                    u = torch.rand(
-                        embedding_context.shape[0],
-                        embedding_context.shape[1],
-                        device=embedding_context.device
-                    ).detach()
-
-                    z = embedding_unif(u)
-                    w = computeWeights(u, z)
-
-                    # normalize and clamp weights
-                    w = w / (w.sum() + 1e-8)
-                    w = torch.clamp(w, min=0)
-
-                    lengthscale = median_heuristic(
-                        torch.cat([embedding_context, embedding_context_cont], dim=0)
-                    )
+                    # Use median_heuristic_combined to ensure the kernel covers the space of both distributions
+                    l_scale = median_heuristic_combined(embedding_context, embedding_context_cont)
                     
-                    summary_loss = MMD_weighted(embedding_context, embedding_context_cont, w, lengthscale)
+                    summary_loss = MMD_weighted(
+                        embedding_context,
+                        embedding_context_cont,
+                        lengthscale=l_scale
+                    )
 
                     t_loss = torch.mean(train_losses)
-
                     train_loss = t_loss + beta * summary_loss
 
                 elif distance == "none":

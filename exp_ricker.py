@@ -4,6 +4,9 @@ from utils.get_nn_models import *
 from inference.snpe.snpe_c import SNPE_C as SNPE
 from inference.base import *
 from utils.torchutils import *
+from scipy.stats import qmc
+from scipy import stats as stats
+from utils.metrics import *
 import pickle
 import os
 import argparse
@@ -33,7 +36,7 @@ def main(args):
     else:
         prior = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
                  Uniform(torch.zeros(1), 20 * torch.ones(1))]
-
+        
     simulator, prior = prepare_for_sbi(ricker(N=N), prior)
 
     sum_net = RickerSummary(input_size=1, hidden_dim=4).to(device)
@@ -74,7 +77,9 @@ def main(args):
     x = x.reshape(num_simulations, N, 100).to(device)
     theta = theta.to(device)
     density_estimator = inference.append_simulations(theta, x.unsqueeze(1)).train(
-        distance=distance, x_obs=obs_cont, beta=beta)
+        distance=distance, 
+        x_obs=obs_cont, 
+        beta=beta)
 
     # increase the prior range in case we can't generate thetas for mis-specified observation
     prior_new = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
@@ -98,7 +103,7 @@ if __name__ == "__main__":
     parser.add_argument("--beta", type=float, default=1.0, help="regularization weight")
     parser.add_argument("--degree", type=float, default=0.2, help="degree of mis-specification")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd"])
+    parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd", "mmd-efficient"])
     parser.add_argument("--num_simulations", type=int, default=1000, help="number of simulations")
     parser.add_argument("--theta", type=list, default=[4, 10], help="ground truth theta")
     parser.add_argument("--N", type=int, default=100, help="Number of realizations for each set of theta")

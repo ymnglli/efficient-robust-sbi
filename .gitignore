@@ -10,3 +10,7 @@ data/*
 !data/turin_obs.npy
 
 objects/*
+
+test/*
+
+__pycache__/
