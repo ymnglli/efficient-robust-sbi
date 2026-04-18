@@ -2,7 +2,6 @@ import os
 from inference.base import *
 from simulators import *
 from utils.torchutils import *
-from sbi.utils import BoxUniform
 
 device = torch.device("cpu")
 
@@ -60,13 +59,12 @@ if __name__ == "__main__":
     np.save(f"{data_dir}/oup_x_{num_simulations}.npy", x.reshape(num_simulations, N, 25).detach().numpy())
 
     turin = turin(B=4e9, Ns=801, N=N, tau0=0)
-    low = torch.tensor([1e-9, 1e-9, 1e7, 1e-10]).to(device)
-    high = torch.tensor([1e-8, 1e-8, 5e9, 1e-9]).to(device)
-
-    prior_turin = BoxUniform(low=low, high=high)
+    prior_turin = [Uniform(1e-9*torch.ones(1).to(device), 1e-8*torch.ones(1).to(device)),
+                   Uniform(1e-9*torch.ones(1).to(device), 1e-8*torch.ones(1).to(device)),
+                   Uniform(1e7*torch.ones(1).to(device), 5e9*torch.ones(1).to(device)),
+                   Uniform(1e-10*torch.ones(1).to(device), 1e-9*torch.ones(1).to(device))]
     theta_gt = torch.tensor([10**(-8.4), 7.8e-9, 1e9, 2.8e-10])
 
     theta, x = simulate_for_sbi(turin, prior_turin, num_simulations=num_simulations)
     np.save(f"{data_dir}/turin_theta_{num_simulations}.npy", theta.reshape(num_simulations, 4).detach().numpy())
     np.save(f"{data_dir}/turin_x_{num_simulations}.npy", x.reshape(num_simulations, N, 801).detach().numpy())
-

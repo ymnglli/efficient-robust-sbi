@@ -11,5 +11,6 @@ data/*
 
 objects/*
 
-**/__pycache__
-.python-version
+test/*
+
+__pycache__/

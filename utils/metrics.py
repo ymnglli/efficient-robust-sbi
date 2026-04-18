@@ -307,67 +307,49 @@ def MMD_unweighted(x, y, lengthscale):
 
     return (1 / m ** 2) * torch.sum(kxx) - (2 / (m * n)) * torch.sum(kxy) + (1 / n ** 2) * torch.sum(kyy)
 
-def normal_cdf(x, mean, std):
-    return 0.5 * (1 + torch.erf((x - mean) / (std * math.sqrt(2))))
 
-def embedding_unif(u):
-    l = median_heuristic(u)
-    dim = u.shape[1]
-    z = torch.zeros_like(u)
-    
-    for i in range(dim):
-        z[:, i] = math.sqrt(2 * math.pi) * l * (
-            normal_cdf(torch.tensor(1.0, device=u.device), u[:, i], l) -
-            normal_cdf(torch.tensor(0.0, device=u.device), u[:, i], l)
-        )
-
-    if dim == 1:
-        return z
-    else:
-        return torch.prod(z, dim=1)
-    
-def kernel_matrix(x, y, lengthscale):
-    sq_dist = torch.cdist(x, y) ** 2
-    return torch.exp(-sq_dist / (2 * lengthscale**2))
-    
-def MMD_weighted(x, y, w, lengthscale):
-    if x.dim() == 1:
-        x = x.unsqueeze(1)
-        y = y.unsqueeze(1)
-        w = w.unsqueeze(1)
-
+def MMD_weighted(x, y, lengthscale, reg=1e-5):
+    """ 
+    Optimally-Weighted MMD between samples x (simulations) and y (observations).
+    Based on Bharti et al. (2023).
+    """
     m = x.shape[0]
     n = y.shape[0]
 
-    xy = torch.cat([x, y], dim=0)
-    K = kernel_matrix(xy, xy, lengthscale)
+    K_xx = kernel_matrix(x, x, lengthscale)
+    K_xy = kernel_matrix(x, y, lengthscale)
+    K_yy = kernel_matrix(y, y, lengthscale)
 
-    kxx = K[:m, :m]
-    kyy = K[m:m+n, m:m+n]
-    kxy = K[:m, m:m+n]
+    # Find optimal weights w for simulations x
+    # The target z is the mean similarity of each simulation to the observed distribution y
+    z = K_xy.mean(dim=1) # Shape (m,)
+    
+    with torch.no_grad():
+        # Solve (K_xx + reg*I)w = z
+        # Add a small regularization to the diagonal for numerical stability
+        I = torch.eye(m, device=x.device)
+        # Adaptive regularization based on the trace of K_xx
+        effective_reg = reg * torch.trace(K_xx) / m
+        try:
+            w = torch.linalg.solve(K_xx + effective_reg * I, z)
+            w = torch.clamp(w, min=0)
+            w = w / (w.sum() + 1e-8)
+        except RuntimeError:
+            # Fallback if matrix is singular
+            w = torch.ones(m, device=x.device) / m
 
-    w = w.view(-1, 1)
+    # Compute Weighted MMD^2
+    # Formula: w^T K_xx w - 2 * w^T K_xy 1_n / n + 1_n^T K_yy 1_n / n^2
+    term1 = w @ K_xx @ w
+    term2 = 2 * (w @ z)
+    term3 = K_yy.mean()
 
-    sum1 = w.T @ kxx @ w
-    sum2 = (w.T @ kxy).sum()
-    sum3 = kyy.sum() / (n**2)
+    return term1 - term2 + term3
 
-    return (sum1 - (2/n) * sum2 + sum3).squeeze()
-
-def computeWeights(u, z):
-    m = u.shape[0]
-    l = median_heuristic(u)
-
-    delta = 1e-8
-
-    C = kernel_matrix(u, u, l) + delta * torch.eye(m, device=u.device)
-
-    if z.dim() == 1:
-        z = z.unsqueeze(1)
-
-    w = torch.linalg.solve(C, z)
-
-    return w.squeeze()
+# Ensure lengthscale uses both distributions for better coverage
+def median_heuristic_combined(x, y):
+    combined = torch.cat((x, y), dim=0)
+    return median_heuristic(combined)
 
 def median_heuristic(y):
     a = torch.cdist(y, y)**2

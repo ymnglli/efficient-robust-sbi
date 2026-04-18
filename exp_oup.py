@@ -6,7 +6,6 @@ from networks.summary_nets import OUPSummary
 from utils.get_nn_models import *
 from inference.snpe.snpe_c import SNPE_C as SNPE
 from inference.base import *
-from sbi.utils import BoxUniform
 from utils.torchutils import *
 import pickle
 import os
@@ -31,10 +30,8 @@ def main(args):
     if not os.path.exists(root_name):
         os.makedirs(root_name)
 
-    prior = BoxUniform(
-        low=torch.tensor([0.0, -2.0], device=device),
-        high=torch.tensor([2.0, 2.0], device=device)
-    )
+    prior = [Uniform(torch.zeros(1).to(device), 2 * torch.ones(1).to(device)),
+             Uniform(-2 * torch.ones(1).to(device), 2 * torch.ones(1).to(device))]
 
     simulator, prior = prepare_for_sbi(oup(N=N, var=var), prior)
 
@@ -70,10 +67,8 @@ def main(args):
         distance=distance, x_obs=obs_cont, beta=beta)
 
     # increase the prior range in case we can't generate thetas for mis-specified observation
-    prior_new = BoxUniform(
-        low=torch.tensor([-20.0, -20.0], device=device),
-        high=torch.tensor([20.0, 20.0], device=device)
-    )
+    prior_new = [Uniform(-20 * torch.ones(1), 20 * torch.ones(1)),
+                 Uniform(-20 * torch.ones(1), 20 * torch.ones(1))]
     simulator, prior_new = prepare_for_sbi(oup(N=N, var=var), prior_new)
     posterior = inference.build_posterior(density_estimator, prior=prior_new)
 

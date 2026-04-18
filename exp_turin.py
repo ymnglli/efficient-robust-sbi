@@ -7,7 +7,6 @@ from utils.get_nn_models import *
 from inference.snpe.snpe_c import SNPE_C as SNPE
 from inference.base import *
 from utils.torchutils import *
-from sbi.utils import BoxUniform
 import pickle
 import os
 import argparse
@@ -28,10 +27,10 @@ def main(args):
     if not os.path.exists(root_name):
         os.makedirs(root_name)
 
-    prior = BoxUniform(
-        low=torch.tensor([1e-9, 1e-9, 1e7, 1e-10], device=device),
-        high=torch.tensor([1e-8, 1e-8, 5e9, 1e-9], device=device)
-    )
+    prior = [Uniform(1e-9*torch.ones(1).to(device), 1e-8*torch.ones(1).to(device)),
+             Uniform(1e-9*torch.ones(1).to(device), 1e-8*torch.ones(1).to(device)),
+             Uniform(1e7*torch.ones(1).to(device), 5e9*torch.ones(1).to(device)),
+             Uniform(1e-10*torch.ones(1).to(device), 1e-9*torch.ones(1).to(device))]
 
     simulator, prior = prepare_for_sbi(turin(B=4e9, Ns=801, N=100, tau0=0), prior)
 
@@ -57,11 +56,11 @@ def main(args):
     density_estimator = inference.append_simulations(theta, x.unsqueeze(1)).train(
         distance=distance, x_obs=x_obs, beta=beta)
 
-    prior_new = BoxUniform(
-        low=torch.tensor([1e-10, 1e-10, 1e6, 1e-11], device=device),
-        high=torch.tensor([1e-7, 1e-7, 1e10, 1e-8], device=device)
-    )
-    
+    prior_new = [Uniform(1e-10*torch.ones(1).to(device), 1e-7*torch.ones(1).to(device)),
+                 Uniform(1e-10*torch.ones(1).to(device), 1e-7*torch.ones(1).to(device)),
+                 Uniform(1e6*torch.ones(1).to(device), 1e10*torch.ones(1).to(device)),
+                 Uniform(1e-11*torch.ones(1).to(device), 1e-8*torch.ones(1).to(device))]
+
     simulator, prior_new = prepare_for_sbi(turin(B=4e9, Ns=801, N=100, tau0=0), prior_new)
     posterior_new = inference.build_posterior(density_estimator, prior=prior_new)
     posterior = inference.build_posterior(density_estimator, prior=prior)
@@ -79,7 +78,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--beta", type=float, default=1.0, help="regularization weight")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd", "mmd-efficient"])
+    parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd"])
     parser.add_argument("--num_simulations", type=int, default=2000, help="number of simulations")
     parser.add_argument("--theta", type=list, default=[10**(-8.4), 7.8e-9, 1e9, 2.8e-10])
     parser.add_argument("--N", type=int, default=100)
