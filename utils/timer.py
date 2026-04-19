@@ -31,7 +31,7 @@ class Timer:
         log = [f"--- Timing: {self.name} ---\n",
               f"Elapsed time: {total_time_s:.3f}s\n",
               f"Timer ran for {len(self.laps)} laps\n",
-              f"Average time per epoch: {mean_time_s:.3f}s"]
+              f"Average time per epoch: {mean_time_s:.3f}s\n"]
 
         if (verbose):
             print("".join(log))
