@@ -5,6 +5,7 @@
 .idea
 
 *sbi-logs/
+notebooks/logs/*
 
 data/*
 !data/turin_obs.npy

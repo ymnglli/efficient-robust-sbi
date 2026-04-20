@@ -15,6 +15,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def main(args):
+    print(device)
     distance = args.distance
     beta = args.beta
     num_simulations = args.num_simulations
@@ -36,7 +37,7 @@ def main(args):
     else:
         prior = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
                  Uniform(torch.zeros(1), 20 * torch.ones(1))]
-        
+
     simulator, prior = prepare_for_sbi(ricker(N=N), prior)
 
     sum_net = RickerSummary(input_size=1, hidden_dim=4).to(device)
