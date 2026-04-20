@@ -308,48 +308,76 @@ def MMD_unweighted(x, y, lengthscale):
     return (1 / m ** 2) * torch.sum(kxx) - (2 / (m * n)) * torch.sum(kxy) + (1 / n ** 2) * torch.sum(kyy)
 
 
-def MMD_weighted(x, y, lengthscale, reg=1e-5):
+def MMD_weighted(x, y, w, lengthscale):
     """ 
-    Optimally-Weighted MMD between samples x (simulations) and y (observations).
-    Based on Bharti et al. (2023).
+    Approximates the weighted squared MMD estimate between samples x_i ~ P and y_i ~ Q 
     """
+    
+    if x.ndim == 1:
+        x = x.unsqueeze(1)
+    if y.ndim == 1:
+        y = y.unsqueeze(1)
+    if w.ndim == 1:
+        w = w.unsqueeze(1)
+        
     m = x.shape[0]
     n = y.shape[0]
 
-    K_xx = kernel_matrix(x, x, lengthscale)
-    K_xy = kernel_matrix(x, y, lengthscale)
-    K_yy = kernel_matrix(y, y, lengthscale)
+    xy = torch.cat((x, y), dim=0)
+    K = kernel_matrix(xy, xy, lengthscale)
 
-    # Find optimal weights w for simulations x
-    # The target z is the mean similarity of each simulation to the observed distribution y
-    z = K_xy.mean(dim=1) # Shape (m,)
+    kxx = K[0:m, 0:m]
+    kyy = K[m:(m+n), m:(m+n)]
+    kxy = K[0:m, m:(m+n)]
+
+    # sum1: w^T * kxx * w 
+    sum1 = torch.matmul(torch.matmul(w.t(), kxx), w)
+
+    # sum2: w^T * kxy * ones_vector
+    sum2 = torch.matmul(w.t(), torch.sum(kxy, dim=1, keepdim=True))
+
+    # sum3: (1/n^2) * sum of all elements in kyy
+    sum3 = (1.0 / n**2) * torch.sum(kyy)
+
+    return sum1 - (2.0 / n) * sum2 + sum3
+
+
+def embedding_Gaussian(u, mu=0, sigma=1):
+   # Assumes u is a torch.Tensor of shape (m, dim)
+   l = median_heuristic(u)
+   m, dim = u.shape
+   variance_sum = l**2 + sigma**2
+   coeff = (l**2 / variance_sum) ** (dim / 2.0)
+   sq_norms = torch.norm(u, p=2, dim=1, keepdim=True)**2
+   z = coeff * torch.exp(-sq_norms / (2 * variance_sum))
+   return z
+
+
+def computeWeights(u, z, kernel="Gaussian", nu=2.5, delta=1e-8):
+    """
+    Computes the optimal weights
+    u: tensor of shape (m, dim)
+    z: tensor of shape (m, 1)
+    """
+    m = u.shape[0]
+
+    l = median_heuristic(u)
+
+    # Compute Gram-matrix C
+    if kernel == "Gaussian":
+        C = kernel_matrix(u, u, l) 
+    else:
+        raise NotImplementedError("Matern kernel requires a torch-native implementation.")
     
-    with torch.no_grad():
-        # Solve (K_xx + reg*I)w = z
-        # Add a small regularization to the diagonal for numerical stability
-        I = torch.eye(m, device=x.device)
-        # Adaptive regularization based on the trace of K_xx
-        effective_reg = reg * torch.trace(K_xx) / m
-        try:
-            w = torch.linalg.solve(K_xx + effective_reg * I, z)
-            w = torch.clamp(w, min=0)
-            w = w / (w.sum() + 1e-8)
-        except RuntimeError:
-            # Fallback if matrix is singular
-            w = torch.ones(m, device=x.device) / m
+    # Add regularization (delta * I) for numerical stability
+    # .to(u.device) ensures the identity matrix is on the same device as u
+    C = C + delta * torch.eye(m, device=u.device, dtype=u.dtype)
 
-    # Compute Weighted MMD^2
-    # Formula: w^T K_xx w - 2 * w^T K_xy 1_n / n + 1_n^T K_yy 1_n / n^2
-    term1 = w @ K_xx @ w
-    term2 = 2 * (w @ z)
-    term3 = K_yy.mean()
+    # Solve the linear system C * w = z
+    weights = torch.linalg.solve(C, z)
 
-    return term1 - term2 + term3
+    return weights
 
-# Ensure lengthscale uses both distributions for better coverage
-def median_heuristic_combined(x, y):
-    combined = torch.cat((x, y), dim=0)
-    return median_heuristic(combined)
 
 def median_heuristic(y):
     a = torch.cdist(y, y)**2

@@ -30,7 +30,7 @@ from utils import (
     check_estimator_arg,
     handle_invalid_x,
     test_posterior_net_for_multi_d_x,
-    validate_theta_and_x,
+    validate_theta_x_and_u,
     warn_if_zscoring_changes_data,
     warn_on_invalid_x,
     warn_on_invalid_x_for_snpec_leakage,
@@ -86,11 +86,13 @@ class PosteriorEstimator(NeuralInference, ABC):
 
         self._proposal_roundwise = []
         self.use_non_atomic_loss = False
+        self._u_roundwise = []
 
     def append_simulations(
         self,
         theta: Tensor,
         x: Tensor,
+        u: Tensor,
         proposal: Optional[DirectPosterior] = None,
         data_device: Optional[str] = None,
     ) -> "PosteriorEstimator":
@@ -105,6 +107,7 @@ class PosteriorEstimator(NeuralInference, ABC):
         Args:
             theta: Parameter sets.
             x: Simulation outputs.
+            u: Noise.
             proposal: The distribution that the parameters $\theta$ were sampled from.
                 Pass `None` if the parameters were sampled from the prior. If not
                 `None`, it will trigger a different loss-function.
@@ -120,6 +123,7 @@ class PosteriorEstimator(NeuralInference, ABC):
 
         x = x[is_valid_x]
         theta = theta[is_valid_x]
+        u = u[is_valid_x]
 
         # Check for problematic z-scoring
         warn_if_zscoring_changes_data(x)
@@ -131,7 +135,7 @@ class PosteriorEstimator(NeuralInference, ABC):
         if data_device is None:
             data_device = self._device
 
-        theta, x = validate_theta_and_x(
+        theta, x, u = validate_theta_x_and_u(
             theta, x, data_device=data_device, training_device=self._device
         )
         self._check_proposal(proposal)
@@ -161,6 +165,7 @@ class PosteriorEstimator(NeuralInference, ABC):
         self._x_roundwise.append(x)
         self._prior_masks.append(prior_masks)
         self._proposal_roundwise.append(proposal)
+        self._u_roundwise.append(u)
 
         if self._prior is None or isinstance(self._prior, ImproperEmpirical):
             if proposal is not None:
@@ -288,7 +293,7 @@ class PosteriorEstimator(NeuralInference, ABC):
         if self._neural_net is None or retrain_from_scratch:
 
             # Get theta,x to initialize NN
-            theta, x, _ = self.get_simulations(starting_round=start_idx)
+            theta, x, _, _ = self.get_simulations(starting_round=start_idx)
 
             # Use only training data for building the neural net (z-scoring transforms)
 
@@ -331,6 +336,7 @@ class PosteriorEstimator(NeuralInference, ABC):
                     batch[0].to(self._device),
                     batch[1].to(self._device),
                     batch[2].to(self._device),
+                    batch[3].to(self._device)
                 )
 
                 train_losses, embedding_context, embedding_context_hidden = self._loss(
@@ -343,7 +349,7 @@ class PosteriorEstimator(NeuralInference, ABC):
                 )
 
                 if distance == "mmd":
-                    theta, x, _ = self.get_simulations(starting_round=0)
+                    theta, x, _, _ = self.get_simulations(starting_round=0)
                     theta_dim = theta[0].shape[0]
 
                     _, embedding_context_cont, embedding_context_cont_hidden = self._loss(
@@ -376,7 +382,7 @@ class PosteriorEstimator(NeuralInference, ABC):
                     train_loss = t_loss + beta * summary_loss
 
                 elif distance == "euclidean":
-                    theta, x, _ = self.get_simulations(starting_round=0)
+                    theta, x, _, _ = self.get_simulations(starting_round=0)
                     theta_dim = theta[0].shape[0]
 
                     _, embedding_context_cont, embedding_context_cont_hidden = self._loss(
@@ -409,7 +415,7 @@ class PosteriorEstimator(NeuralInference, ABC):
                     train_loss = t_loss + beta * summary_loss
 
                 elif distance == "mmd-efficient":
-                    theta, x, _ = self.get_simulations(starting_round=0)
+                    theta, x, _, u = self.get_simulations(starting_round=0)
                     theta_dim = theta[0].shape[0]
 
                     _, embedding_context_cont, embedding_context_cont_hidden = self._loss(
@@ -423,7 +429,6 @@ class PosteriorEstimator(NeuralInference, ABC):
 
                     index_list = [int(i) for i in range(len(theta))]
                     random.shuffle(index_list)
-                    # TODO: make batch size configurable
                     theta = theta[index_list[:200]]
                     x = x[index_list[:200]]
 
@@ -436,16 +441,13 @@ class PosteriorEstimator(NeuralInference, ABC):
                         force_first_round_loss=True,
                     )
 
-                    # Use median_heuristic_combined to ensure the kernel covers the space of both distributions
-                    l_scale = median_heuristic_combined(embedding_context, embedding_context_cont)
-                    
-                    summary_loss = MMD_weighted(
-                        embedding_context,
-                        embedding_context_cont,
-                        lengthscale=l_scale
-                    )
+                    z = embedding_Gaussian(u)
+                    w = computeWeights(u, z)
+
+                    summary_loss = MMD_weighted(embedding_context, embedding_context_cont, w, lengthscale=median_heuristic(embedding_context))
 
                     t_loss = torch.mean(train_losses)
+
                     train_loss = t_loss + beta * summary_loss
 
                 elif distance == "none":

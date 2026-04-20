@@ -155,8 +155,8 @@ class NeuralInference(ABC):
     def get_simulations(
         self,
         starting_round: int = 0,
-    ) -> Tuple[Tensor, Tensor, Tensor]:
-        r"""Returns all $\theta$, $x$, and prior_masks from rounds >= `starting_round`.
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        r"""Returns all $\theta$, $x$, $u$ and prior_masks from rounds >= `starting_round`.
 
         If requested, do not return invalid data.
 
@@ -177,11 +177,14 @@ class NeuralInference(ABC):
         x = get_simulations_since_round(
             self._x_roundwise, self._data_round_index, starting_round
         )
+        u = self.get_simulations_since_round(
+            self._u_roundwise, self._data_round_index, starting_round
+        )
         prior_masks = get_simulations_since_round(
             self._prior_masks, self._data_round_index, starting_round
         )
 
-        return theta, x, prior_masks
+        return theta, x, u, prior_masks
 
     @abstractmethod
     def train(
@@ -224,9 +227,9 @@ class NeuralInference(ABC):
         """
 
         #
-        theta, x, prior_masks = self.get_simulations(starting_round)
+        theta, x, u, prior_masks = self.get_simulations(starting_round)
 
-        dataset = data.TensorDataset(theta, x, prior_masks)
+        dataset = data.TensorDataset(theta, x, u, prior_masks)
 
         # Get total number of training examples.
         num_examples = theta.size(0)

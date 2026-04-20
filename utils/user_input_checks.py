@@ -647,9 +647,9 @@ def check_estimator_arg(estimator: Union[str, Callable]) -> None:
     )
 
 
-def validate_theta_and_x(
-    theta: Any, x: Any, data_device: str = "cpu", training_device: str = "cpu"
-) -> Tuple[Tensor, Tensor]:
+def validate_theta_x_and_u(
+    theta: Any, x: Any, u: Any, data_device: str = "cpu", training_device: str = "cpu"
+) -> Tuple[Tensor, Tensor, Tensor]:
     r"""
     Checks if the passed $(\theta, x)$ are valid.
 
@@ -663,27 +663,30 @@ def validate_theta_and_x(
     computations for training are performed.
 
     Raises:
-        AssertionError: If theta or x are not torch.Tensor-like,
+        AssertionError: If theta, x, or u are not torch.Tensor-like,
         do not yield the same batchsize and do not have dtype==float32.
 
     Args:
         theta: Parameters.
         x: Simulation outputs.
+        u: Noise.
         data_device: Device where data is stored.
         training_device: Training device for net.
     """
     assert isinstance(theta, Tensor), "Parameters theta must be a `torch.Tensor`."
     assert isinstance(x, Tensor), "Simulator output must be a `torch.Tensor`."
+    assert isinstance(u, Tensor), "Noise must be a `torch.Tensor`."
 
-    assert theta.shape[0] == x.shape[0], (
+    assert theta.shape[0] == x.shape[0] == u.shape[0], (
         f"Number of parameter sets (={theta.shape[0]} must match the number of "
-        f"simulation outputs (={x.shape[0]})"
+        f"simulation outputs (={x.shape[0]}) and noise samples (={u.shape[0]})."
     )
 
     # I did not fuse these asserts with the `isinstance(x, Tensor)` asserts in order
     # to give more explicit errors.
     assert theta.dtype == float32, "Type of parameters must be float32."
     assert x.dtype == float32, "Type of simulator outputs must be float32."
+    assert u.dtype == float32, "Type of noise must be float32."
 
     if str(x.device) != data_device:
         warnings.warn(
@@ -701,7 +704,15 @@ def validate_theta_and_x(
         )
         theta = theta.to(data_device)
 
-    return theta, x
+    if str(u.device) != data_device:
+        warnings.warn(
+            f"Parameters u has device '{u.device}'. "
+            f"Moving u to the data_device '{data_device}'."
+            f"Training will proceed on device '{training_device}'."
+        )
+        u = u.to(data_device)
+
+    return theta, x, u
 
 
 def test_posterior_net_for_multi_d_x(net: flows.Flow, theta: Tensor, x: Tensor) -> None:
