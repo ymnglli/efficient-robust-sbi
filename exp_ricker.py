@@ -11,7 +11,9 @@ import pickle
 import os
 import argparse
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+from utils.timer import Timer
+
+device = torch.device("cpu") # torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def main(args):
@@ -28,15 +30,25 @@ def main(args):
 
     task_name = f"degree={degree}_{distance}_beta={beta}_theta={theta_gt}_num={num_simulations}/{str(args.seed)}"
     root_name = 'objects/NPE/ricker/' + str(task_name)
+    timer = Timer(task_name, root_name)
+
     if not os.path.exists(root_name):
         os.makedirs(root_name)
 
+    timer.start()
+
     if prior_mismatch:
-        prior = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
-                 torch.distributions.log_normal.LogNormal(loc=torch.tensor([0.5]), scale=torch.tensor([1]))]
+        prior = [Uniform(2 * torch.ones(1, device=device), 
+                         8 * torch.ones(1, device=device)),
+                 torch.distributions.log_normal.LogNormal(
+                        loc=torch.tensor([0.5], device=device), 
+                        scale=torch.tensor([1], device=device)
+                    )]
     else:
-        prior = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
-                 Uniform(torch.zeros(1), 20 * torch.ones(1))]
+        prior = [Uniform(2 * torch.ones(1, device=device), 
+                         8 * torch.ones(1, device=device)),
+                 Uniform(torch.zeros(1, device=device), 
+                         20 * torch.ones(1, device=device))]
 
     simulator, prior = prepare_for_sbi(ricker(N=N), prior)
 
@@ -75,6 +87,7 @@ def main(args):
     else:
         theta, x = simulate_for_sbi(simulator, prior, num_simulations=num_simulations)
 
+    timer.lap()
     x = x.reshape(num_simulations, N, 100).to(device)
     theta = theta.to(device)
     density_estimator = inference.append_simulations(theta, x.unsqueeze(1)).train(
@@ -97,6 +110,7 @@ def main(args):
     if args.keep_inference:
         with open(root_name + "/inference.pkl", "wb") as handle:
             pickle.dump(inference, handle)
+    timer.stop()
 
 
 if __name__ == "__main__":
