@@ -136,7 +136,7 @@ class PosteriorEstimator(NeuralInference, ABC):
             data_device = self._device
 
         theta, x, u = validate_theta_x_and_u(
-            theta, x, data_device=data_device, training_device=self._device
+            theta, x, u, data_device=data_device, training_device=self._device
         )
         self._check_proposal(proposal)
 
@@ -332,7 +332,7 @@ class PosteriorEstimator(NeuralInference, ABC):
             for batch in train_loader:
                 self.optimizer.zero_grad()
                 # Get batches on current device.
-                theta_batch, x_batch, masks_batch = (
+                theta_batch, x_batch, u_batch, masks_batch = (
                     batch[0].to(self._device),
                     batch[1].to(self._device),
                     batch[2].to(self._device),
@@ -431,6 +431,7 @@ class PosteriorEstimator(NeuralInference, ABC):
                     random.shuffle(index_list)
                     theta = theta[index_list[:200]]
                     x = x[index_list[:200]]
+                    u = u[index_list[:200]]
 
                     _, embedding_context, _ = self._loss(
                         theta,

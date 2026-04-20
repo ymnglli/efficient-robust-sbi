@@ -177,7 +177,7 @@ class NeuralInference(ABC):
         x = get_simulations_since_round(
             self._x_roundwise, self._data_round_index, starting_round
         )
-        u = self.get_simulations_since_round(
+        u = get_simulations_since_round(
             self._u_roundwise, self._data_round_index, starting_round
         )
         prior_masks = get_simulations_since_round(

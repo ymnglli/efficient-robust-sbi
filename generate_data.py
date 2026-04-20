@@ -12,8 +12,8 @@ DEVICE = torch.device("cpu")
 DATA_DIR = "data"
 DEGREES = [0, 0.1, 0.2]
 # NUM_SIMULATIONS * N_SAMPLES should be a power of 2 for Sobol sampling
-NUM_SIMULATIONS = 1024
-N_SAMPLES = 128
+NUM_SIMULATIONS = 1000
+N_SAMPLES = 100
 T_RICKER = 100
 
 def save_numpy(path, tensor):
@@ -69,6 +69,7 @@ def run_sbi_simulation(prior_list, model_name, time_steps, use_qmc=False):
         return sim_inst(theta)
 
     sim, prior = prepare_for_sbi(simulator_wrapper, prior_list)
+    noise_logs.clear()
 
     theta, x = simulate_for_sbi(sim, prior, NUM_SIMULATIONS)
     file_suffix = "_qmc" if use_qmc else ""

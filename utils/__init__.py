@@ -64,7 +64,7 @@ from utils.user_input_checks import (
     process_prior,
     process_x,
     test_posterior_net_for_multi_d_x,
-    validate_theta_and_x,
+    validate_theta_x_and_u,
 )
 from utils.user_input_checks_utils import MultipleIndependent
 

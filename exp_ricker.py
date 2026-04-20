@@ -1,11 +1,10 @@
-from simulators.ricker import ricker
 from networks.summary_nets import RickerSummary
 from utils.get_nn_models import *
 from inference.snpe.snpe_c import SNPE_C as SNPE
 from inference.base import *
 from utils.torchutils import *
-from scipy.stats import qmc
 from scipy import stats as stats
+from utils.user_input_checks import process_prior
 from utils.metrics import *
 import pickle
 import os
@@ -15,6 +14,7 @@ from utils.timer import Timer
 
 device = torch.device("cpu") # torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+# Note: Script assumes generate_data.py is run to generate data first
 
 def main(args):
     print(device)
@@ -37,16 +37,6 @@ def main(args):
 
     timer.start()
 
-    T = 100
-    # Use QMC sampling for mmd-efficient
-    # TODO check if it is pregenerated already
-    if distance == "mmd-efficient":
-        sampler = qmc.Sobol(d=T, scramble=True)
-        u_uniform = sampler.random(N)
-        u = torch.tensor(stats.norm.ppf(u_uniform), dtype=torch.float32, device=device)
-    else:
-        u = torch.randn(N, T).to(device)
-
     if prior_mismatch:
         prior = [Uniform(2 * torch.ones(1, device=device), 
                          8 * torch.ones(1, device=device)),
@@ -60,7 +50,7 @@ def main(args):
                  Uniform(torch.zeros(1, device=device), 
                          20 * torch.ones(1, device=device))]
 
-    simulator, prior = prepare_for_sbi(ricker(u=u, N=N, T=T), prior)
+    prior, _, _ = process_prior(prior)
 
     sum_net = RickerSummary(input_size=1, hidden_dim=4).to(device)
     neural_posterior = posterior_nn(
@@ -77,30 +67,25 @@ def main(args):
         else:
             obs_cont = torch.tensor(np.load(f"data/ricker_obs_{int(degree * 10)}.npy"))
     else:
-        if prior_mismatch:
-            obs_cont = simulator(torch.tensor([[4, 25]])).reshape(-1, N, 100).to(device)
-        else:
-            theta_gt = torch.tensor(theta_gt)
-            theta_cont = torch.tensor([4, 100])
-            simulator = ricker(u=u, N=N, T=T)
-            obs = simulator(theta_gt).to(device)
-            obs_2 = simulator(theta_cont).to(device)
-            obs_cont = torch.cat([obs[:n_normal], obs_2[:n_corrupted]], dim=0).reshape(-1, N, 100)
+        raise RuntimeError("This pipeline requires pre-generated observations")
 
     if args.pre_generated_sim:
         if prior_mismatch:
-            theta = torch.tensor(np.load("data/ricker_theta_1000_pm.npy"))
-            x = torch.tensor(np.load("data/ricker_x_1000_pm.npy")).reshape(num_simulations, N, 100)
+            theta = torch.tensor(np.load(f"data/ricker_theta_{num_simulations}_pm.npy"))
+            x = torch.tensor(np.load(f"data/ricker_x_{num_simulations}_pm.npy")).reshape(num_simulations, N, 100)
+            u = torch.tensor(np.load(f"data/ricker_u_{num_simulations}_pm.npy")).reshape(num_simulations, N, 100)
         else:
-            theta = torch.tensor(np.load("data/ricker_theta_1000.npy"))
-            x = torch.tensor(np.load("data/ricker_x_1000.npy")).reshape(num_simulations, N, 100)
+            theta = torch.tensor(np.load(f"data/ricker_theta_{num_simulations}.npy"))
+            x = torch.tensor(np.load(f"data/ricker_x_{num_simulations}.npy")).reshape(num_simulations, N, 100)
+            u = torch.tensor(np.load(f"data/ricker_u_{num_simulations}.npy")).reshape(num_simulations, N, 100)
     else:
-        theta, x = simulate_for_sbi(simulator, prior, num_simulations=num_simulations)
+        raise RuntimeError("This pipeline requires pre-generated simulations")
 
     timer.lap()
     x = x.reshape(num_simulations, N, 100).to(device)
     theta = theta.to(device)
-    density_estimator = inference.append_simulations(theta, x.unsqueeze(1)).train(
+    u = u.to(device)
+    density_estimator = inference.append_simulations(theta, x.unsqueeze(1), u).train(
         distance=distance, 
         x_obs=obs_cont, 
         beta=beta)
@@ -108,7 +93,7 @@ def main(args):
     # increase the prior range in case we can't generate thetas for mis-specified observation
     prior_new = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
                  Uniform(torch.zeros(1), 80 * torch.ones(1))]
-    simulator, prior_new = prepare_for_sbi(ricker(u=u, N=N, T=T), prior_new)
+    prior_new, _, _ = process_prior(prior_new)
     posterior = inference.build_posterior(density_estimator, prior=prior_new)
 
     with open(root_name + "/posterior.pkl", "wb") as handle:
