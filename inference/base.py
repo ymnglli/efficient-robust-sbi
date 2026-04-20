@@ -501,55 +501,6 @@ def simulate_for_sbi(
     return theta, x
 
 
-def simulate_for_sbi_qmc(
-        simulator, 
-        prior, 
-        num_simulations,
-        num_workers: int = 1,
-        simulation_batch_size: int = 1,
-        show_progress_bar: bool = True
-) -> Tuple[Tensor, Tensor]:
-    """
-    Generates simulations using a Sobol sequence for the parameters (theta).
-    Use for MultipleIndependent priors.
-
-    Returns: Sampled parameters $\theta$ and simulation-outputs $x$.
-    """
-
-    if not isinstance(prior, MultipleIndependent):
-        raise TypeError(
-            f"QMC simulation requires a MultipleIndependent prior."
-        )
-    
-    dists = prior.dists
-    dim = prior.ndims
-    sobol = SobolEngine(dimension=dim, scramble=True)
-    unit_samples = sobol.draw(num_simulations)
-
-    theta_parts = []
-    current_dim = 0
-
-    for d in dists:
-        d_dim = d.event_shape.numel() or 1
-        u_slice = unit_samples[:, current_dim : current_dim + d_dim]
-        
-        # Apply Inverse CDF
-        try:
-            p_sample = d.icdf(u_slice)
-            theta_parts.append(p_sample.reshape(num_simulations, d_dim))
-        except NotImplementedError:
-            raise TypeError(f"Distribution {type(d)} does not support QMC (no ICDF implementation).")
-        
-        current_dim += d_dim
-
-    theta = torch.cat(theta_parts, dim=-1).to(torch.float32)
-
-    x = simulate_in_batches(
-        simulator, theta, simulation_batch_size, num_workers, show_progress_bar
-    )
-
-    return theta, x
-
 
 def check_if_proposal_has_default_x(proposal: Any):
     """Check for validity of the provided proposal distribution.

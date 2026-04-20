@@ -6,11 +6,8 @@ from torch.distributions import Uniform, LogNormal
 
 device = torch.device("cpu")
 
-def simulate_data(simulator, prior, num_simulations, qmc=False):
-    if qmc:
-        theta, x = simulate_for_sbi_qmc(simulator, prior, num_simulations)
-    else:
-        theta, x = simulate_for_sbi(simulator, prior, num_simulations)
+def simulate_data(simulator, prior, num_simulations):
+    theta, x = simulate_for_sbi(simulator, prior, num_simulations)
     return theta, x
 
 
@@ -42,10 +39,6 @@ if __name__ == "__main__":
     np.save(f"{data_dir}/ricker_theta_{num_simulations}.npy", theta.reshape(num_simulations, 2).detach().numpy())
     np.save(f"{data_dir}/ricker_x_{num_simulations}.npy", x.reshape(num_simulations, N, 100).detach().numpy())
 
-    theta_qmc, x_qmc = simulate_data(ricker, prior_ricker, num_simulations, qmc=True)
-    np.save(f"{data_dir}/ricker_theta_{num_simulations}_qmc.npy", theta_qmc.reshape(num_simulations, 2).detach().numpy())
-    np.save(f"{data_dir}/ricker_x_{num_simulations}_qmc.npy", x_qmc.reshape(num_simulations, N, 100).detach().numpy())
-
     prior_ricker_pm = [
         Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
         LogNormal(loc=torch.tensor([0.5]), scale=torch.tensor([1.0]))
@@ -57,10 +50,6 @@ if __name__ == "__main__":
     theta_pm, x_pm = simulate_data(ricker, prior_ricker_pm, num_simulations)
     np.save(f"{data_dir}/ricker_theta_{num_simulations}_pm.npy", theta_pm.reshape(num_simulations, 2).detach().numpy())
     np.save(f"{data_dir}/ricker_x_{num_simulations}_pm.npy", x_pm.reshape(num_simulations, N, 100).detach().numpy())
-
-    theta_pm_qmc, x_pm_qmc = simulate_data(ricker, prior_ricker_pm, num_simulations, qmc=True)
-    np.save(f"{data_dir}/ricker_x_{num_simulations}_pm_qmc.npy", x_pm_qmc.reshape(num_simulations, N, 100).detach().numpy())
-    np.save(f"{data_dir}/ricker_theta_{num_simulations}_pm_qmc.npy", theta_pm_qmc.reshape(num_simulations, 2).detach().numpy())
 
     oup = oup(N=N)
     prior_oup = [Uniform(torch.zeros(1).to(device), 2 * torch.ones(1).to(device)),
@@ -80,10 +69,6 @@ if __name__ == "__main__":
     theta, x = simulate_data(oup, prior_oup, num_simulations)
     np.save(f"{data_dir}/oup_theta_{num_simulations}.npy", theta.reshape(num_simulations, 2).detach().numpy())
     np.save(f"{data_dir}/oup_x_{num_simulations}.npy", x.reshape(num_simulations, N, 25).detach().numpy())
-
-    theta_qmc, x_qmc = simulate_data(oup, prior_oup, num_simulations, qmc=True)
-    np.save(f"{data_dir}/oup_theta_qmc_{num_simulations}.npy", theta_qmc.reshape(num_simulations, 2).detach().numpy())
-    np.save(f"{data_dir}/oup_x_qmc_{num_simulations}.npy", x_qmc.reshape(num_simulations, N, 25).detach().numpy())
 
     """ Original script was broken here
     turin = turin(B=4e9, Ns=801, N=N, tau0=0)

@@ -3,8 +3,11 @@ import numpy as np
 
 
 class ricker():
-    def __init__(self, N=20):
+    # Workaround to access u with the sbi library
+    # Do not use batch size > 1 because u will be reused
+    def __init__(self, u, N=20):
         self.N = N
+        self.u = u
 
     def __call__(self, theta, *args, **kwargs):
         if len(theta.shape) == 1:
@@ -24,7 +27,7 @@ class ricker():
         Y = torch.zeros(size=(nSamples, T))
 
         for i in range(nSamples):
-            et = torch.randn(T, )
+            et = self.u[i]
             Nt = torch.zeros(size=(T + 1,))
 
             Nt[0] = N0
