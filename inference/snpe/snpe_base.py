@@ -415,7 +415,7 @@ class PosteriorEstimator(NeuralInference, ABC):
                     train_loss = t_loss + beta * summary_loss
 
                 elif distance == "mmd-efficient":
-                    theta, x, _, u = self.get_simulations(starting_round=0)
+                    theta, x, u, _ = self.get_simulations(starting_round=0)
                     theta_dim = theta[0].shape[0]
 
                     _, embedding_context_cont, embedding_context_cont_hidden = self._loss(
@@ -442,8 +442,9 @@ class PosteriorEstimator(NeuralInference, ABC):
                         force_first_round_loss=True,
                     )
 
-                    z = embedding_Gaussian(u)
-                    w = computeWeights(u, z)
+                    u_flat = u.reshape(u.shape[0], -1).float()
+                    z = embedding_Gaussian(u_flat)
+                    w = computeWeights(u_flat, z)
 
                     summary_loss = MMD_weighted(embedding_context, embedding_context_cont, w, lengthscale=median_heuristic(embedding_context))
 
