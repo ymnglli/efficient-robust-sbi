@@ -55,7 +55,7 @@ def main(args):
             obs_cont = torch.tensor(np.load(f"data/ricker_obs_{int(degree * 10)}.npy"))
     else:
         if prior_mismatch:
-            obs_cont = simulator(torch.tensor([4, 25])).reshape(-1, N, 100).to(device)
+            obs_cont = simulator(torch.tensor([[4, 25]])).reshape(-1, N, 100).to(device)
         else:
             theta_gt = torch.tensor(theta_gt)
             theta_cont = torch.tensor([4, 100])
