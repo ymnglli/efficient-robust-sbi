@@ -12,8 +12,8 @@ DEVICE = torch.device("cpu")
 DATA_DIR = "data"
 DEGREES = [0, 0.1, 0.2]
 # NUM_SIMULATIONS * N_SAMPLES should be a power of 2 for Sobol sampling
-NUM_SIMULATIONS = 1000
-N_SAMPLES = 100
+NUM_SIMULATIONS = 1024
+N_SAMPLES = 128
 T_RICKER = 100
 
 def save_numpy(path, tensor):

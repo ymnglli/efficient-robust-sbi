@@ -18,7 +18,15 @@ class RickerSummary(nn.Module):
                                   nn.AvgPool1d(3))
 
     def forward(self, Y):
-        embeddings_conv = self.conv(Y.reshape(-1, 1, 100)).reshape(-1, 100, 4)
+        if Y.dim() == 4:
+            Y = Y.squeeze(1)
+        batch_size, N_size, time_steps = Y.shape
+    
+        x = Y.reshape(-1, 1, time_steps)
+        x = self.conv(x)
+        x = x.flatten(1)
+
+        embeddings_conv = x.reshape(batch_size, N_size, -1)
 
         stat_conv = torch.mean(embeddings_conv, dim=1)
 

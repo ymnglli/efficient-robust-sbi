@@ -57,13 +57,14 @@ def main(args):
         model="maf",
         embedding_net=sum_net,
         hidden_features=20,
-        num_transforms=3)
+        num_transforms=3
+    )
 
     inference = SNPE(prior=prior, density_estimator=neural_posterior, device=str(device))
 
     if args.pre_generated_obs:
         if prior_mismatch:
-            obs_cont = torch.tensor(np.load("data/ricker_obs_pm.npy")).reshape(-1, 100, 100).to(device)
+            obs_cont = torch.tensor(np.load("data/ricker_obs_pm.npy")).reshape(-1, N, 100).to(device)
         else:
             obs_cont = torch.tensor(np.load(f"data/ricker_obs_{int(degree * 10)}.npy"))
     else:
@@ -114,9 +115,9 @@ if __name__ == "__main__":
     parser.add_argument("--degree", type=float, default=0.2, help="degree of mis-specification")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd", "mmd-efficient"])
-    parser.add_argument("--num_simulations", type=int, default=1000, help="number of simulations")
+    parser.add_argument("--num_simulations", type=int, default=1024, help="number of simulations")
     parser.add_argument("--theta", type=list, default=[4, 10], help="ground truth theta")
-    parser.add_argument("--N", type=int, default=100, help="Number of realizations for each set of theta")
+    parser.add_argument("--N", type=int, default=128, help="Number of realizations for each set of theta")
     parser.add_argument("--prior-mismatch", action="store_true", help="whether use mis-specified prior")
     parser.add_argument("--pre-generated-sim", action="store_true", help="generate simulation data online or not")
     parser.add_argument("--pre-generated-obs", action="store_true", help="generate observation data online or not")
