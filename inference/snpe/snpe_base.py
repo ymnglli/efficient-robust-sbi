@@ -479,10 +479,11 @@ class PosteriorEstimator(NeuralInference, ABC):
 
             with torch.no_grad():
                 for batch in val_loader:
-                    theta_batch, x_batch, masks_batch = (
+                    theta_batch, x_batch, u_batch, masks_batch = (
                         batch[0].to(self._device),
                         batch[1].to(self._device),
                         batch[2].to(self._device),
+                        batch[3].to(self._device),
                     )
                     # Take negative loss here to get validation log_prob.
                     val_losses, _, _ = self._loss(
