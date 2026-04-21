@@ -17,21 +17,12 @@ class RickerSummary(nn.Module):
                                   nn.Conv1d(self.hidden_dim, self.hidden_dim, 3, 3),
                                   nn.AvgPool1d(3))
 
-    def forward(self, Y):
-        if Y.dim() == 4:
-            Y = Y.squeeze(1)
-        batch_size, N_size, time_steps = Y.shape
-    
-        x = Y.reshape(-1, 1, time_steps)
-        x = self.conv(x)
-        x = x.flatten(1)
-
-        embeddings_conv = x.reshape(batch_size, N_size, -1)
-
+    def forward(self, Y):        
+        _, _, N, T = Y.shape
+        embeddings_conv = self.conv(Y.reshape(-1, 1, T)).reshape(-1, N, 4)
         stat_conv = torch.mean(embeddings_conv, dim=1)
 
         return embeddings_conv, stat_conv
-
 
 class GLRSummary(nn.Module):
     def __init__(self, input_dim, hidden_dim):

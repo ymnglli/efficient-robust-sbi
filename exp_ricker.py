@@ -14,7 +14,7 @@ from utils.timer import Timer
 
 device = torch.device("cpu") # torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# Note: Script assumes generate_data.py is run to generate data first
+# Note: Run generate_data.py to generate data first
 
 def main(args):
     print(device)
@@ -24,20 +24,15 @@ def main(args):
     theta_gt = args.theta
     N = args.N
     degree = args.degree
-    n_corrupted = int(N * degree)
-    n_normal = int(N - n_corrupted)
     prior_mismatch = args.prior_mismatch
     sampling = args.sampling
     sample_size = args.sample_size
 
     task_name = f"degree={degree}_{distance}_beta={beta}_theta={theta_gt}_num={num_simulations}/{str(args.seed)}"
     root_name = 'objects/NPE/ricker/' + str(task_name)
-    timer = Timer(task_name, root_name)
 
     if not os.path.exists(root_name):
         os.makedirs(root_name)
-
-    timer.start()
 
     if prior_mismatch:
         prior = [Uniform(2 * torch.ones(1, device=device), 
@@ -86,7 +81,6 @@ def main(args):
     else:
         raise RuntimeError("This pipeline requires pre-generated simulations")
 
-    timer.lap()
     x = x.reshape(num_simulations, N, 100).to(device)
     theta = theta.to(device)
     u = u.to(device)
@@ -111,7 +105,6 @@ def main(args):
     if args.keep_inference:
         with open(root_name + "/inference.pkl", "wb") as handle:
             pickle.dump(inference, handle)
-    timer.stop()
 
 
 if __name__ == "__main__":
@@ -120,9 +113,9 @@ if __name__ == "__main__":
     parser.add_argument("--degree", type=float, default=0.2, help="degree of mis-specification")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd", "mmd-efficient"])
-    parser.add_argument("--num_simulations", type=int, default=1024, help="number of simulations")
+    parser.add_argument("--num_simulations", type=int, default=1000, help="number of simulations")
     parser.add_argument("--theta", type=list, default=[4, 10], help="ground truth theta")
-    parser.add_argument("--N", type=int, default=128, help="Number of realizations for each set of theta")
+    parser.add_argument("--N", type=int, default=100, help="Number of realizations for each set of theta")
     parser.add_argument("--prior-mismatch", action="store_true", help="whether use mis-specified prior")
     parser.add_argument("--pre-generated-sim", action="store_true", help="generate simulation data online or not")
     parser.add_argument("--pre-generated-obs", action="store_true", help="generate observation data online or not")

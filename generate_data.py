@@ -12,8 +12,8 @@ DEVICE = torch.device("cpu")
 DATA_DIR = "data"
 DEGREES = [0, 0.1, 0.2]
 # NUM_SIMULATIONS * N_SAMPLES should be a power of 2 for Sobol sampling
-NUM_SIMULATIONS = 1024
-N_SAMPLES = 128
+NUM_SIMULATIONS = 4000
+N_SAMPLES = 100
 T_RICKER = 100
 T_OUP = 25
 
@@ -27,9 +27,11 @@ def generate_u(timesteps, engine=None):
     If engine is provided, it draws the next sequence in the Sobol chain.
     """
     if engine is not None:
-        # engine.random(N) draws the next N points in the d-dimensional space
         u_uniform = engine.random(N_SAMPLES)
-        return torch.tensor(stats.norm.ppf(u_uniform), dtype=torch.float32, device=DEVICE)
+        # Map [0, 1] to [0.0001, 0.9999]
+        # This keeps Gaussian noise within approx +/- 3.7 standard deviations
+        u_safe = 1e-4 + (u_uniform * (1 - 2e-4))
+        return torch.tensor(stats.norm.ppf(u_safe), dtype=torch.float32, device=DEVICE)
     else:
         return torch.randn(N_SAMPLES, timesteps).to(DEVICE)
 
@@ -93,7 +95,7 @@ def run_sbi_simulation(prior_list, model_name, time_steps, use_qmc=False):
 if __name__ == "__main__":
     if not os.path.exists(DATA_DIR):
         os.makedirs(DATA_DIR)
-
+    
     generate_contaminated_obs(torch.tensor([4, 10]), torch.tensor([4, 100]), 
                               N_SAMPLES, T_RICKER, "ricker")
 
