@@ -27,6 +27,8 @@ def main(args):
     n_corrupted = int(N * degree)
     n_normal = int(N - n_corrupted)
     prior_mismatch = args.prior_mismatch
+    sampling = args.sampling
+    sample_size = args.sample_size
 
     task_name = f"degree={degree}_{distance}_beta={beta}_theta={theta_gt}_num={num_simulations}/{str(args.seed)}"
     root_name = 'objects/NPE/ricker/' + str(task_name)
@@ -70,15 +72,17 @@ def main(args):
     else:
         raise RuntimeError("This pipeline requires pre-generated observations")
 
+    suffix = "_qmc" if sampling == "qmc" else ""
+        
     if args.pre_generated_sim:
         if prior_mismatch:
             theta = torch.tensor(np.load(f"data/ricker_theta_{num_simulations}_pm.npy"))
             x = torch.tensor(np.load(f"data/ricker_x_{num_simulations}_pm.npy")).reshape(num_simulations, N, 100)
             u = torch.tensor(np.load(f"data/ricker_u_{num_simulations}_pm.npy")).reshape(num_simulations, N, 100)
         else:
-            theta = torch.tensor(np.load(f"data/ricker_theta_{num_simulations}.npy"))
-            x = torch.tensor(np.load(f"data/ricker_x_{num_simulations}.npy")).reshape(num_simulations, N, 100)
-            u = torch.tensor(np.load(f"data/ricker_u_{num_simulations}.npy")).reshape(num_simulations, N, 100)
+            theta = torch.tensor(np.load(f"data/ricker_theta_{num_simulations}_qmc.npy"))
+            x = torch.tensor(np.load(f"data/ricker_x_{num_simulations}{suffix}.npy")).reshape(num_simulations, N, 100)
+            u = torch.tensor(np.load(f"data/ricker_u_{num_simulations}{suffix}.npy")).reshape(num_simulations, N, 100)
     else:
         raise RuntimeError("This pipeline requires pre-generated simulations")
 
@@ -89,7 +93,8 @@ def main(args):
     density_estimator = inference.append_simulations(theta, x.unsqueeze(1), u).train(
         distance=distance, 
         x_obs=obs_cont, 
-        beta=beta)
+        beta=beta,
+        sample_size=sample_size)
 
     # increase the prior range in case we can't generate thetas for mis-specified observation
     prior_new = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
@@ -122,5 +127,7 @@ if __name__ == "__main__":
     parser.add_argument("--pre-generated-sim", action="store_true", help="generate simulation data online or not")
     parser.add_argument("--pre-generated-obs", action="store_true", help="generate observation data online or not")
     parser.add_argument("--keep-inference", action="store_true", help="save inference model or not")
+    parser.add_argument("--sampling", type=str, default="mc", choices=["mc", "qmc"], help="sampling method to use")
+    parser.add_argument("--sample-size", type=int, default=200, help="sample size used to estimate MMD in simulated and observed data")
     args = parser.parse_args()
     main(args)

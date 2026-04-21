@@ -202,7 +202,8 @@ class PosteriorEstimator(NeuralInference, ABC):
         dataloader_kwargs: Optional[dict] = None,
         distance: str = "euclidean",
         beta: float = 1,
-        x_obs: Tensor = None
+        x_obs: Tensor = None,
+        sample_size: int = 200
     ) -> nn.Module:
         r"""Return density estimator that approximates the distribution $p(\theta|x)$.
 
@@ -236,6 +237,7 @@ class PosteriorEstimator(NeuralInference, ABC):
             dataloader_kwargs: Additional or updated kwargs to be passed to the training
                 and validation dataloaders (like, e.g., a collate_fn)
             distance: use which method to train corrupted method
+            sample_size: Sample size used to estimate MMD in simulated and observed data.
 
         Returns:
             Density estimator that approximates the distribution $p(\theta|x)$.
@@ -363,8 +365,8 @@ class PosteriorEstimator(NeuralInference, ABC):
 
                     index_list = [int(i) for i in range(len(theta))]
                     random.shuffle(index_list)
-                    theta = theta[index_list[:200]]
-                    x = x[index_list[:200]]
+                    theta = theta[index_list[:sample_size]]
+                    x = x[index_list[:sample_size]]
 
                     _, embedding_context, _ = self._loss(
                         theta,
@@ -396,8 +398,8 @@ class PosteriorEstimator(NeuralInference, ABC):
 
                     index_list = [int(i) for i in range(len(theta))]
                     random.shuffle(index_list)
-                    theta = theta[index_list[:200]]
-                    x = x[index_list[:200]]
+                    theta = theta[index_list[:sample_size]]
+                    x = x[index_list[:sample_size]]
 
                     _, embedding_context, _ = self._loss(
                         theta,
@@ -429,9 +431,9 @@ class PosteriorEstimator(NeuralInference, ABC):
 
                     index_list = [int(i) for i in range(len(theta))]
                     random.shuffle(index_list)
-                    theta = theta[index_list[:200]]
-                    x = x[index_list[:200]]
-                    u = u[index_list[:200]]
+                    theta = theta[index_list[:sample_size]]
+                    x = x[index_list[:sample_size]]
+                    u = u[index_list[:sample_size]]
 
                     _, embedding_context, _ = self._loss(
                         theta,

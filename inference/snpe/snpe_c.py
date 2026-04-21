@@ -102,7 +102,8 @@ class SNPE_C(PosteriorEstimator):
         dataloader_kwargs: Optional[Dict] = None,
         distance: str = "euclidean",
         beta: float = 1,
-        x_obs: Tensor = None
+        x_obs: Tensor = None,
+        sample_size: int = 200
     ) -> nn.Module:
         r"""Return density estimator that approximates the distribution $p(\theta|x)$.
 
@@ -140,7 +141,7 @@ class SNPE_C(PosteriorEstimator):
                 loss and leakage after the training.
             dataloader_kwargs: Additional or updated kwargs to be passed to the training
                 and validation dataloaders (like, e.g., a collate_fn)
-
+            sample_size: Sample size used to estimate MMD in simulated and observed data.
         Returns:
             Density estimator that approximates the distribution $p(\theta|x)$.
         """
