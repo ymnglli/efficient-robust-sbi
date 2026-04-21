@@ -2,7 +2,10 @@ import torch
 
 
 class oup():
-    def __init__(self, n=25, N=20, var=0.1):
+    # Workaround to access u with the sbi library
+    # Do not use batch size > 1 because u will be reused
+    def __init__(self, u, n=25, N=20, var=0.1):
+        self.u = u
         self.n = n
         self.N = N
         self.var = var
@@ -22,10 +25,10 @@ class oup():
         Y = torch.zeros([self.N, self.n]).to(device)
         Y[:, 0] = 10
         for i in range(self.N):
-            w = torch.normal(0., self.var, size=(self.n, 1)).to(device)
+            w_i = self.u[i] * self.var
 
             for t in range(self.n-1):
-                mu, sigma = theta1*(theta2 - Y[i, t])*dt, 0.5*(dt**0.5)*w[t]
+                mu, sigma = theta1*(theta2 - Y[i, t])*dt, 0.5*(dt**0.5)*w_i[t]
                 Y[i, t+1] = Y[i, t] + mu + sigma
         return Y
 

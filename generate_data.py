@@ -15,12 +15,13 @@ DEGREES = [0, 0.1, 0.2]
 NUM_SIMULATIONS = 1024
 N_SAMPLES = 128
 T_RICKER = 100
+T_OUP = 25
 
 def save_numpy(path, tensor):
     """Helper to handle detaching and conversion."""
     np.save(path, tensor.detach().cpu().numpy())
 
-def generate_u(engine=None):
+def generate_u(timesteps, engine=None):
     """
     Generates a (N, T) block of noise.
     If engine is provided, it draws the next sequence in the Sobol chain.
@@ -30,11 +31,11 @@ def generate_u(engine=None):
         u_uniform = engine.random(N_SAMPLES)
         return torch.tensor(stats.norm.ppf(u_uniform), dtype=torch.float32, device=DEVICE)
     else:
-        return torch.randn(N_SAMPLES, T_RICKER).to(DEVICE)
+        return torch.randn(N_SAMPLES, timesteps).to(DEVICE)
 
 def generate_contaminated_obs(theta_gt, theta_cont, n_total, time_steps, model_name):
     """Generates ground-truth/contaminated observations using standard MC noise."""
-    u_fixed = generate_u(engine=None) 
+    u_fixed = generate_u(time_steps, engine=None) 
     sim = ricker(u=u_fixed, N=n_total, T=time_steps)
     
     for degree in DEGREES:
@@ -63,9 +64,14 @@ def run_sbi_simulation(prior_list, model_name, time_steps, use_qmc=False):
 
     def simulator_wrapper(theta):
         # Pulls the next N_SAMPLES from the persistent engine.
-        u = generate_u(engine=engine)
+        u = generate_u(time_steps, engine=engine)
         noise_logs.append(u)
-        sim_inst = ricker(u=u, N=N_SAMPLES, T=time_steps)
+        if model_name == "oup":
+            sim_inst = oup(u=u, N=N_SAMPLES, n=time_steps)
+        elif model_name == "ricker": 
+            sim_inst = ricker(u=u, N=N_SAMPLES, T=time_steps)
+        else:
+            raise RuntimeError(f"{model_name} not supported in this pipeline")
         return sim_inst(theta)
 
     sim, prior = prepare_for_sbi(simulator_wrapper, prior_list)
@@ -91,7 +97,7 @@ if __name__ == "__main__":
     generate_contaminated_obs(torch.tensor([4, 10]), torch.tensor([4, 100]), 
                               N_SAMPLES, T_RICKER, "ricker")
 
-    u_pm = generate_u(engine=None)
+    u_pm = generate_u(T_RICKER, engine=None)
     sim_pm_obs = ricker(u=u_pm, N=N_SAMPLES, T=T_RICKER)
     obs_pm = sim_pm_obs(torch.tensor([[4, 25]])).reshape(-1, N_SAMPLES, T_RICKER)
     save_numpy(f"{DATA_DIR}/ricker_obs_pm.npy", obs_pm)
@@ -104,23 +110,21 @@ if __name__ == "__main__":
         LogNormal(loc=torch.tensor([0.5]), scale=torch.tensor([1.0]))
     ]
 
-    # Each dataset creates a new Sobol sequence
     run_sbi_simulation(prior_ricker, "ricker", T_RICKER, use_qmc=False)
     run_sbi_simulation(prior_ricker, "ricker", T_RICKER, use_qmc=True)
     run_sbi_simulation(prior_ricker_pm, "ricker_pm", T_RICKER, use_qmc=False)
     run_sbi_simulation(prior_ricker_pm, "ricker_pm", T_RICKER, use_qmc=True)
-
-    """ TODO: add qmc for oup
+    
     # OUP
-    oup_inst = oup(N=N_SAMPLES)
     prior_oup = [
         Uniform(torch.zeros(1).to(DEVICE), 2 * torch.ones(1).to(DEVICE)),
         Uniform(-2 * torch.ones(1).to(DEVICE), 2 * torch.ones(1).to(DEVICE))
     ]
     
-    generate_contaminated_obs(oup_inst, torch.tensor([0.5, 1.0]), torch.tensor([-0.5, 1]), N_SAMPLES, 25, "oup")
-    run_sbi_simulation(oup_inst, prior_oup, "oup", 25)
-    """
+    generate_contaminated_obs(torch.tensor([0.5, 1.0]), torch.tensor([-0.5, 1]), 
+                              N_SAMPLES, T_OUP, "oup")
+    run_sbi_simulation(prior_oup, "oup", T_OUP, use_qmc=False)
+    run_sbi_simulation(prior_oup, "oup", T_OUP, use_qmc=True)
     
     """ Original script was broken here
     turin = turin(B=4e9, Ns=801, N=N, tau0=0)
