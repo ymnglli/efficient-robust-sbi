@@ -11,9 +11,9 @@ from scipy import stats as stats
 DEVICE = torch.device("cpu")
 DATA_DIR = "data"
 DEGREES = [0, 0.1, 0.2]
-# NUM_SIMULATIONS * N_SAMPLES should be a power of 2 for Sobol sampling
-NUM_SIMULATIONS = 4000
-N_SAMPLES = 100
+NUM_SIMULATIONS = 1000
+# N_SAMPLES should be a power of 2 for Sobol sampling
+N_SAMPLES = 128
 T_RICKER = 100
 T_OUP = 25
 
@@ -21,23 +21,23 @@ def save_numpy(path, tensor):
     """Helper to handle detaching and conversion."""
     np.save(path, tensor.detach().cpu().numpy())
 
-def generate_u(timesteps, engine=None):
+def generate_u(N, timesteps, engine=None):
     """
     Generates a (N, T) block of noise.
     If engine is provided, it draws the next sequence in the Sobol chain.
     """
     if engine is not None:
-        u_uniform = engine.random(N_SAMPLES)
+        u_uniform = engine.random(N)
         # Map [0, 1] to [0.0001, 0.9999]
         # This keeps Gaussian noise within approx +/- 3.7 standard deviations
         u_safe = 1e-4 + (u_uniform * (1 - 2e-4))
         return torch.tensor(stats.norm.ppf(u_safe), dtype=torch.float32, device=DEVICE)
     else:
-        return torch.randn(N_SAMPLES, timesteps).to(DEVICE)
+        return torch.randn(N, timesteps).to(DEVICE)
 
 def generate_contaminated_obs(theta_gt, theta_cont, n_total, time_steps, model_name):
     """Generates ground-truth/contaminated observations using standard MC noise."""
-    u_fixed = generate_u(time_steps, engine=None) 
+    u_fixed = generate_u(n_total, time_steps, engine=None) 
     sim = ricker(u=u_fixed, N=n_total, T=time_steps)
     
     for degree in DEGREES:
@@ -66,7 +66,7 @@ def run_sbi_simulation(prior_list, model_name, time_steps, use_qmc=False):
 
     def simulator_wrapper(theta):
         # Pulls the next N_SAMPLES from the persistent engine.
-        u = generate_u(time_steps, engine=engine)
+        u = generate_u(N_SAMPLES, time_steps, engine=engine)
         noise_logs.append(u)
         if model_name == "oup":
             sim_inst = oup(u=u, N=N_SAMPLES, n=time_steps)
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     generate_contaminated_obs(torch.tensor([4, 10]), torch.tensor([4, 100]), 
                               N_SAMPLES, T_RICKER, "ricker")
 
-    u_pm = generate_u(T_RICKER, engine=None)
+    u_pm = generate_u(N_SAMPLES, T_RICKER, engine=None)
     sim_pm_obs = ricker(u=u_pm, N=N_SAMPLES, T=T_RICKER)
     obs_pm = sim_pm_obs(torch.tensor([[4, 25]])).reshape(-1, N_SAMPLES, T_RICKER)
     save_numpy(f"{DATA_DIR}/ricker_obs_pm.npy", obs_pm)

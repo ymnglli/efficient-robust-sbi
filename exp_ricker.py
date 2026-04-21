@@ -115,7 +115,7 @@ if __name__ == "__main__":
     parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd", "mmd-efficient"])
     parser.add_argument("--num_simulations", type=int, default=1000, help="number of simulations")
     parser.add_argument("--theta", type=list, default=[4, 10], help="ground truth theta")
-    parser.add_argument("--N", type=int, default=100, help="Number of realizations for each set of theta")
+    parser.add_argument("--N", type=int, default=128, help="Number of realizations for each set of theta")
     parser.add_argument("--prior-mismatch", action="store_true", help="whether use mis-specified prior")
     parser.add_argument("--pre-generated-sim", action="store_true", help="generate simulation data online or not")
     parser.add_argument("--pre-generated-obs", action="store_true", help="generate observation data online or not")
