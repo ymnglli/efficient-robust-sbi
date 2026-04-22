@@ -12,9 +12,9 @@ import pickle
 import os
 import argparse
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu") #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# Note: Script assumes generate_data.py is run to generate data first
+# Note: Run generate_data.py to generate data first
 
 def main(args):
     var = args.var
@@ -29,7 +29,7 @@ def main(args):
     sampling = args.sampling
     sample_size = args.sample_size
 
-    task_name = f"degree={degree}_var={var}_{distance}_beta={beta}_theta={theta_gt}_num={num_simulations}/{str(args.seed)}"
+    task_name = f"degree={degree}_var={var}_{distance}_beta={beta}_theta={theta_gt}_num={num_simulations}_size={sample_size}/{str(args.seed)}"
     root_name = 'objects/oup_final/' + str(task_name)
     if not os.path.exists(root_name):
         os.makedirs(root_name)
@@ -68,7 +68,8 @@ def main(args):
         distance=distance, 
         x_obs=obs_cont, 
         beta=beta, 
-        sample_size=sample_size)
+        sample_size=sample_size,
+        training_batch_size=64)
 
     # increase the prior range in case we can't generate thetas for mis-specified observation
     prior_new = [Uniform(-20 * torch.ones(1), 20 * torch.ones(1)),
@@ -94,13 +95,13 @@ if __name__ == "__main__":
     parser.add_argument("--degree", type=float, default=0.2, help="degree of mis-specification")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd", "mmd-efficient"])
-    parser.add_argument("--num_simulations", type=int, default=1000, help="number of simulations")
+    parser.add_argument("--num_simulations", type=int, default=1024, help="number of simulations")
     parser.add_argument("--theta", type=list, default=[0.5, 1.0], help="ground truth theta")
     parser.add_argument("--N", type=int, default=128, help="Number of realizations for each set of theta")
     parser.add_argument("--pre-generated-sim", action="store_true", help="generate simulation data online or not")
     parser.add_argument("--pre-generated-obs", action="store_true", help="generate observation data online or not")
     parser.add_argument("--keep-inference", action="store_true", help="save inference model or not")
     parser.add_argument("--sampling", type=str, default="mc", choices=["mc", "qmc"], help="sampling method to use")
-    parser.add_argument("--sample-size", type=int, default=200, help="sample size used to estimate MMD in simulated and observed data")
+    parser.add_argument("--sample-size", type=int, default=256, help="sample size used to estimate MMD in simulated and observed data")
     args = parser.parse_args()
     main(args)

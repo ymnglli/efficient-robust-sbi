@@ -28,7 +28,7 @@ def main(args):
     sampling = args.sampling
     sample_size = args.sample_size
 
-    task_name = f"degree={degree}_{distance}_beta={beta}_theta={theta_gt}_num={num_simulations}/{str(args.seed)}"
+    task_name = f"degree={degree}_{distance}_beta={beta}_theta={theta_gt}_num={num_simulations}_size={sample_size}/{str(args.seed)}"
     root_name = 'objects/NPE/ricker/' + str(task_name)
 
     if not os.path.exists(root_name):
@@ -88,7 +88,8 @@ def main(args):
         distance=distance, 
         x_obs=obs_cont, 
         beta=beta,
-        sample_size=sample_size)
+        sample_size=sample_size,
+        training_batch_size=64)
 
     # increase the prior range in case we can't generate thetas for mis-specified observation
     prior_new = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
@@ -121,6 +122,6 @@ if __name__ == "__main__":
     parser.add_argument("--pre-generated-obs", action="store_true", help="generate observation data online or not")
     parser.add_argument("--keep-inference", action="store_true", help="save inference model or not")
     parser.add_argument("--sampling", type=str, default="mc", choices=["mc", "qmc"], help="sampling method to use")
-    parser.add_argument("--sample-size", type=int, default=200, help="sample size used to estimate MMD in simulated and observed data")
+    parser.add_argument("--sample-size", type=int, default=256, help="sample size used to estimate MMD in simulated and observed data")
     args = parser.parse_args()
     main(args)

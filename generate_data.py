@@ -11,7 +11,7 @@ from scipy import stats as stats
 DEVICE = torch.device("cpu")
 DATA_DIR = "data"
 DEGREES = [0, 0.1, 0.2]
-NUM_SIMULATIONS = 1000
+NUM_SIMULATIONS = 1024
 # N_SAMPLES should be a power of 2 for Sobol sampling
 N_SAMPLES = 128
 T_RICKER = 100
@@ -70,7 +70,7 @@ def run_sbi_simulation(prior_list, model_name, time_steps, use_qmc=False):
         noise_logs.append(u)
         if model_name == "oup":
             sim_inst = oup(u=u, N=N_SAMPLES, n=time_steps)
-        elif model_name == "ricker": 
+        elif model_name.startswith("ricker"):
             sim_inst = ricker(u=u, N=N_SAMPLES, T=time_steps)
         else:
             raise RuntimeError(f"{model_name} not supported in this pipeline")
