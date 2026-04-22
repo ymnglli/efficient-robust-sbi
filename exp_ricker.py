@@ -12,7 +12,7 @@ import argparse
 
 from utils.timer import Timer
 
-device = torch.device("cpu") # torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Note: Run generate_data.py to generate data first
 
@@ -30,6 +30,7 @@ def main(args):
 
     task_name = f"degree={degree}_{distance}_beta={beta}_theta={theta_gt}_num={num_simulations}_size={sample_size}/{str(args.seed)}"
     root_name = 'objects/NPE/ricker/' + str(task_name)
+    timer = Timer(task_name, root_name)
 
     if not os.path.exists(root_name):
         os.makedirs(root_name)
@@ -63,7 +64,7 @@ def main(args):
         if prior_mismatch:
             obs_cont = torch.tensor(np.load("data/ricker_obs_pm.npy")).reshape(-1, N, 100).to(device)
         else:
-            obs_cont = torch.tensor(np.load(f"data/ricker_obs_{int(degree * 10)}.npy"))
+            obs_cont = torch.tensor(np.load(f"data/ricker_obs_{int(degree * 10)}.npy")).to(device)
     else:
         raise RuntimeError("This pipeline requires pre-generated observations")
 
@@ -71,15 +72,17 @@ def main(args):
         
     if args.pre_generated_sim:
         if prior_mismatch:
-            theta = torch.tensor(np.load(f"data/ricker_theta_{num_simulations}_pm.npy"))
-            x = torch.tensor(np.load(f"data/ricker_x_{num_simulations}_pm.npy")).reshape(num_simulations, N, 100)
-            u = torch.tensor(np.load(f"data/ricker_u_{num_simulations}_pm.npy")).reshape(num_simulations, N, 100)
+            theta = torch.tensor(np.load(f"data/ricker_theta_{num_simulations}_pm.npy")).to(device)
+            x = torch.tensor(np.load(f"data/ricker_x_{num_simulations}_pm.npy")).reshape(num_simulations, N, 100).to(device)
+            u = torch.tensor(np.load(f"data/ricker_u_{num_simulations}_pm.npy")).reshape(num_simulations, N, 100).to(device)
         else:
             theta = torch.tensor(np.load(f"data/ricker_theta_{num_simulations}{suffix}.npy"))
-            x = torch.tensor(np.load(f"data/ricker_x_{num_simulations}{suffix}.npy")).reshape(num_simulations, N, 100)
-            u = torch.tensor(np.load(f"data/ricker_u_{num_simulations}{suffix}.npy")).reshape(num_simulations, N, 100)
+            x = torch.tensor(np.load(f"data/ricker_x_{num_simulations}{suffix}.npy")).reshape(num_simulations, N, 100).to(device)
+            u = torch.tensor(np.load(f"data/ricker_u_{num_simulations}{suffix}.npy")).reshape(num_simulations, N, 100).to(device)
     else:
         raise RuntimeError("This pipeline requires pre-generated simulations")
+    
+    timer.start()
 
     x = x.reshape(num_simulations, N, 100).to(device)
     theta = theta.to(device)
@@ -91,11 +94,15 @@ def main(args):
         sample_size=sample_size,
         training_batch_size=64)
 
+    timer.lap()
+
     # increase the prior range in case we can't generate thetas for mis-specified observation
     prior_new = [Uniform(2 * torch.ones(1), 8 * torch.ones(1)),
                  Uniform(torch.zeros(1), 80 * torch.ones(1))]
     prior_new, _, _ = process_prior(prior_new)
     posterior = inference.build_posterior(density_estimator, prior=prior_new)
+    
+    timer.lap()
 
     with open(root_name + "/posterior.pkl", "wb") as handle:
         pickle.dump(posterior, handle)
@@ -106,6 +113,7 @@ def main(args):
     if args.keep_inference:
         with open(root_name + "/inference.pkl", "wb") as handle:
             pickle.dump(inference, handle)
+    timer.stop()
 
 
 if __name__ == "__main__":
@@ -114,7 +122,7 @@ if __name__ == "__main__":
     parser.add_argument("--degree", type=float, default=0.2, help="degree of mis-specification")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd", "mmd-efficient"])
-    parser.add_argument("--num_simulations", type=int, default=1000, help="number of simulations")
+    parser.add_argument("--num_simulations", type=int, default=1024, help="number of simulations")
     parser.add_argument("--theta", type=list, default=[4, 10], help="ground truth theta")
     parser.add_argument("--N", type=int, default=128, help="Number of realizations for each set of theta")
     parser.add_argument("--prior-mismatch", action="store_true", help="whether use mis-specified prior")
