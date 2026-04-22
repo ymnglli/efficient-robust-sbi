@@ -12,7 +12,7 @@ import pickle
 import os
 import argparse
 
-device = torch.device("cpu") #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Note: Run generate_data.py to generate data first
 

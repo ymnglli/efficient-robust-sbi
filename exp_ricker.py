@@ -12,7 +12,7 @@ import argparse
 
 from utils.timer import Timer
 
-device = torch.device("cpu") # torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Note: Run generate_data.py to generate data first
 
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     parser.add_argument("--degree", type=float, default=0.2, help="degree of mis-specification")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--distance", type=str, default="mmd", choices=["euclidean", "none", "mmd", "mmd-efficient"])
-    parser.add_argument("--num_simulations", type=int, default=1000, help="number of simulations")
+    parser.add_argument("--num_simulations", type=int, default=1024, help="number of simulations")
     parser.add_argument("--theta", type=list, default=[4, 10], help="ground truth theta")
     parser.add_argument("--N", type=int, default=128, help="Number of realizations for each set of theta")
     parser.add_argument("--prior-mismatch", action="store_true", help="whether use mis-specified prior")
