@@ -75,7 +75,7 @@ def main(args):
             x = torch.tensor(np.load(f"data/ricker_x_{num_simulations}_pm.npy")).reshape(num_simulations, N, 100)
             u = torch.tensor(np.load(f"data/ricker_u_{num_simulations}_pm.npy")).reshape(num_simulations, N, 100)
         else:
-            theta = torch.tensor(np.load(f"data/ricker_theta_{num_simulations}_qmc.npy"))
+            theta = torch.tensor(np.load(f"data/ricker_theta_{num_simulations}{suffix}.npy"))
             x = torch.tensor(np.load(f"data/ricker_x_{num_simulations}{suffix}.npy")).reshape(num_simulations, N, 100)
             u = torch.tensor(np.load(f"data/ricker_u_{num_simulations}{suffix}.npy")).reshape(num_simulations, N, 100)
     else:

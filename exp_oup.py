@@ -55,7 +55,7 @@ def main(args):
 
     suffix = "_qmc" if sampling == "qmc" else ""
     if args.pre_generated_sim:
-        theta = torch.tensor(np.load(f"data/oup_theta_{num_simulations}.npy"))
+        theta = torch.tensor(np.load(f"data/oup_theta_{num_simulations}{suffix}.npy"))
         x = torch.tensor(np.load(f"data/oup_x_{num_simulations}{suffix}.npy")).reshape(num_simulations, N, 25)
         u = torch.tensor(np.load(f"data/oup_u_{num_simulations}{suffix}.npy")).reshape(num_simulations, N, 25)
     else:
