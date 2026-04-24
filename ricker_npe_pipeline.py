@@ -5,7 +5,7 @@ class Arg:
     def __init__(self, beta, degree, seed, distance, sampling, sample_size):
         self.beta=beta
         self.degree=degree
-        self.seed=seed,
+        self.seed=seed
         self.distance=distance
         self.num_simulations=1024
         self.theta=[4,10]
