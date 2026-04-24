@@ -44,4 +44,6 @@ class Timer:
             with(open(filepath, "w")) as f:
                 f.writelines(log)
                 f.writelines([f"{lap / 1e9:.4f}s, " for lap in self.laps])
+        
+        return total_time_s
 
