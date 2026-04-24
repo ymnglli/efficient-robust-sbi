@@ -23,7 +23,7 @@ def runner():
     distances = ["mmd", "mmd-efficient"]
     sample_sizes = [32, 128, 256]
     beta = 2.0
-
+    
     for seed in seeds:
         for degree in degrees:
             for sample_size in sample_sizes:
@@ -38,6 +38,7 @@ def runner():
                     print(modelPath)
 
                     if (os.path.exists(inference)):
+                        print("Inference file exists: model was already trained, skipping")
                         continue
 
                     exp_args = Arg(
