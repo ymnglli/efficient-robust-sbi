@@ -28,7 +28,7 @@ def main(args):
     sampling = args.sampling
     sample_size = args.sample_size
 
-    task_name = f"degree={degree}_{distance}_beta={beta}_theta={theta_gt}_num={num_simulations}_size={sample_size}/{str(args.seed)}"
+    task_name = f"degree={degree}_{distance}_beta={beta}_theta={theta_gt}_num={num_simulations}_size={sample_size}/{str(int(args.seed))}"
     root_name = 'objects/NPE/ricker/' + str(task_name)
     timer = Timer(task_name, root_name)
 
