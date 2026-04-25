@@ -11,7 +11,7 @@ from scipy import stats as stats
 DEVICE = torch.device("cpu")
 DATA_DIR = "data"
 DEGREES = [0, 0.1, 0.2]
-NUM_SIMULATIONS = 1024
+NUM_SIMULATIONS = 4096
 # N_SAMPLES should be a power of 2 for Sobol sampling
 N_SAMPLES = 128
 T_RICKER = 100
