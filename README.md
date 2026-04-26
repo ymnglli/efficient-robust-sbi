@@ -7,7 +7,7 @@ _______
 
 ## Installation
 ```
-git clone https://github.com/huangdaolang/Efficient-Robust-SBI.git
+git clone
 
 cd Efficient-Robust-SBI
 
