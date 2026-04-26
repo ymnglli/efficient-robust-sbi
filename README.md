@@ -1,18 +1,15 @@
-# Learning Robust Statistics for Simulation-Based Inference Under Model Misspecification: Code implementation
-
-![](figures/figure1.png)
+# Efficient Learning of Robust Statistics for Simulation-Based Inference Under Model Misspecification
 
 _______
-**Note:** Our implementations build on the [sbi](https://github.com/mackelab/sbi) library by Macke's lab. 
-You can find further details on its structure and the dependencies at the github website.
+**Note:** We base our implementations off of Huang et. al's (2023) original work.
 _______
 
 
 ## Installation
 ```
-git clone https://github.com/huangdaolang/Robust-SBI.git
+git clone https://github.com/huangdaolang/Efficient-Robust-SBI.git
 
-cd Robust-SBI
+cd Efficient-Robust-SBI
 
 conda create --name robust-sbi python=3.8
 
